@@ -1,0 +1,5 @@
+---
+openvpn_port: 1194
+openvpn_protocol: udp
+openvpn_server_ip: 10.8.0.0
+openvpn_netmask: 255.255.255.0

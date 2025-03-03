@@ -1,0 +1,63 @@
+---
+- name: Install OpenVPN
+  apt:
+    name: openvpn
+    state: present
+
+- name: Download Easy-RSA
+  get_url:
+    url: https://github.com/OpenVPN/easy-rsa/releases/download/v3.1.5/EasyRSA-3.1.5.tgz
+    dest: /tmp/EasyRSA.tgz
+
+- name: Ensure easy-rsa directory exists
+  become: yes
+  ansible.builtin.file:
+    path: /etc/openvpn/easy-rsa
+    state: directory
+    mode: "0755"
+    recurse: yes
+ 
+
+- name: Extract Easy-RSA
+  unarchive:
+    src: /tmp/EasyRSA.tgz
+    dest: /etc/openvpn/
+    remote_src: yes
+    extra_opts:
+      - --strip-components=1
+  args:
+    creates: /etc/openvpn/easy-rsa
+
+- name: Initialize PKI
+  command: "/etc/openvpn/easy-rsa init-pki"
+  become: yes
+
+- name: Build CA
+  command: "/etc/openvpn/easy-rsa build-ca nopass"
+  become: yes
+
+- name: Generate server certificate
+  command: "/etc/openvpn/easy-rsa build-server-full server nopass"
+  become: yes
+
+- name: Generate client certificate
+  command: "/etc/openvpn/easy-rsa build-client-full client nopass"
+  become: yes
+
+- name: Copy server configuration to /etc/openvpn
+  template:
+    src: server.conf.j2
+    dest: /etc/openvpn/server.conf
+  become: yes
+
+- name: Generate client .ovpn configuration
+  shell: "/etc/openvpn/easy-rsa gen-req client nopass"
+  register: client_request
+  become: yes
+
+- name: Copy client .ovpn file
+  copy:
+    content: "{{ lookup('file', '/etc/openvpn/easy-rsa/pki/issued/client.crt') }}"
+    dest: "/tmp/client.ovpn"
+  when: client_request.changed
+  become: yes

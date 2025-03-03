@@ -1,0 +1,7 @@
+port {{ openvpn_port }}
+proto {{ openvpn_protocol }}
+dev tun
+server {{ openvpn_server_ip }} {{ openvpn_netmask }}
+keepalive 10 120
+persist-key
+persist-tun

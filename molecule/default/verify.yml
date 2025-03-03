@@ -1,0 +1,11 @@
+---
+- name: Verify OpenVPN is running
+  hosts: all
+  tasks:
+    - name: Check OpenVPN service
+      command: systemctl is-active openvpn
+      register: result
+    - name: Assert OpenVPN is active
+      assert:
+        that:
+          - result.stdout == "active"

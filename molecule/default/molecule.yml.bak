@@ -1,0 +1,9 @@
+provisioner:
+  name: ansible
+  playbooks:
+    converge: ../../../../site.yml
+
+platforms:
+  - name: instance
+    box: ubuntu/bionic64
+    memory: 512
