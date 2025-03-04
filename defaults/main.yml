@@ -1,5 +1,13 @@
----
 openvpn_port: 1194
 openvpn_protocol: udp
-openvpn_server_ip: 10.8.0.0
-openvpn_netmask: 255.255.255.0
+openvpn_network: 10.8.0.0
+openvpn_mask: 255.255.255.0
+openvpn_cipher: AES-256-CBC
+openvpn_keepalive: "10 120"
+openvpn_config: /etc/openvpn/config
+server_config: server.conf.j2
+client_config: client.ovpn.j2
+
+EasyRSA: /etc/openvpn/easy-rsa
+EasyRSA_pki: /etc/openvpn/easy-rsa/pki
+

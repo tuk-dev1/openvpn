@@ -1,8 +1,8 @@
 ---
 - name: Converge
   hosts: all
-  gather_facts: true
-  become: true
+  gather_facts: true # info about system
+  become: true # sudo allow
   tasks:
     - name: "Converge Install openvpn"
       ansible.builtin.debug:

@@ -1,9 +1,26 @@
+---
+driver:
+  name: vagrant
+
 provisioner:
   name: ansible
   playbooks:
-    converge: ../../../../site.yml
+      cleanup: cleanup.yml
+  
+dependency:
+  name: galaxy
+  options:
+    ignore-certs: True
+    ignore-errors: True
+    role-file: requirements.yml
 
 platforms:
-  - name: instance
-    box: ubuntu/bionic64
-    memory: 512
+  - name: srv1
+    box: ubuntu/focal64
+
+verifier:
+  name: ansible
+  skip_list:
+    - role_name_check
+
+

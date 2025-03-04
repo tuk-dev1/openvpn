@@ -1,63 +1,68 @@
----
-- name: Install OpenVPN
-  apt:
-    name: openvpn
+- name: Install OpenVPN and Easy-RSA
+  ansible.builtin.apt:
+    name:
+      - openvpn
+      - easy-rsa
     state: present
 
-- name: Download Easy-RSA
-  get_url:
-    url: https://github.com/OpenVPN/easy-rsa/releases/download/v3.1.5/EasyRSA-3.1.5.tgz
-    dest: /tmp/EasyRSA.tgz
-
-- name: wayaaaa
-  become: yes
-  ansible.builtin.file:
-    path: /etc/openvpn/easy-rsa
-    state: directory
-    mode: "0755"
-    recurse: yes
- 
-
-- name: Extract Easy-RSA
-  unarchive:
-    src: /tmp/EasyRSA.tgz
-    dest: /etc/openvpn/
-    remote_src: yes
-    extra_opts:
-      - --strip-components=1
+- name: Ensure Easy-RSA directory and initialize PKI
+  command:
+    cmd: "{{ item }}"
+    creates: "{{ EasyRSA_pki }}"
   args:
-    creates: /etc/openvpn/easy-rsa
+    chdir: "{{ EasyRSA }}"
+  loop:
+    - make-cadir "{{ EasyRSA }}"
+    - ./easyrsa init-pki
 
-- name: Initialize PKI
-  command: "/etc/openvpn/easy-rsa init-pki"
-  become: yes
+- name: Create CA + certificates
+  shell: |
+    if [ ! -f "{{ EasyRSA_pki }}/ca.crt" ]; then
+      ./easyrsa build-ca nopass
+    fi
+    if [ ! -f "{{ EasyRSA_pki }}/issued/server.crt" ]; then
+      ./easyrsa gen-req server nopass
+      echo "yes" | ./easyrsa sign-req server server
+    fi
+    if [ ! -f "{{ EasyRSA_pki }}/dh.pem" ]; then
+      ./easyrsa gen-dh
+    fi
+    if [ ! -f "{{ EasyRSA_pki }}/ta.key" ]; then
+      openvpn --genkey --secret pki/ta.key
+    fi
+  args:
+    chdir: "{{ EasyRSA }}"
 
-- name: Build CA
-  command: "/etc/openvpn/easy-rsa build-ca nopass"
-  become: yes
+- name: Check OpenVPN directory
+  file:
+    path: /etc/openvpn
+    state: directory
+    mode: '0755'
 
-- name: Generate server certificate
-  command: "/etc/openvpn/easy-rsa build-server-full server nopass"
-  become: yes
-
-- name: Generate client certificate
-  command: "/etc/openvpn/easy-rsa build-client-full client nopass"
-  become: yes
-
-- name: Copy server configuration to /etc/openvpn
-  template:
-    src: server.conf.j2
-    dest: /etc/openvpn/server.conf
-  become: yes
-
-- name: Generate client .ovpn configuration
-  shell: "/etc/openvpn/easy-rsa gen-req client nopass"
-  register: client_request
-  become: yes
-
-- name: Copy client .ovpn file
+- name: Copy OpenVPN files
   copy:
-    content: "{{ lookup('file', '/etc/openvpn/easy-rsa/pki/issued/client.crt') }}"
-    dest: "/tmp/client.ovpn"
-  when: client_request.changed
-  become: yes
+    src: "{{ item }}"
+    dest: "{{ openvpn_config }}/"
+    remote_src: yes
+  with_items:
+    - "{{ EasyRSA_pki }}/ca.crt"
+    - "{{ EasyRSA_pki }}/issued/server.crt"
+    - "{{ EasyRSA_pki }}/private/server.key"
+    - "{{ EasyRSA_pki }}/dh.pem"
+    - "{{ EasyRSA_pki }}/ta.key"
+
+- name: Apply OpenVPN config
+  template:
+    src: "{{ server_config }}"
+    dest: /etc/openvpn/server.conf
+
+- name: Start OpenVPN server
+  systemd:
+    name: openvpn@server
+    state: started
+    enabled: yes
+
+- name: Create client config
+  template:
+    src: "{{ client_config }}"
+    dest: "client.ovpn"
